@@ -1,4 +1,3 @@
-from operator import imod
 import os
 import time
 import tkinter as tk
@@ -26,7 +25,7 @@ model.amp = False  # Automatic Mixed Precision (AMP) inference
 
 tracker = TrackerCSRT_create()
 
-detect_time = 102
+detect_time = 82
 start_time = 0   # for GUI timer
 start_flag = False
 end_game = False
@@ -82,66 +81,89 @@ class my_keyboard:
     #     pd.press('e')
 
     def l(self):
+        global a_label
         if not self.a_key:
             self.release_left_right()
             self.a_key = True
             print('go left')
             pd.keyDown('a')
+            a_label.configure(bg='#FF0')
 
     def l_(self):
+        global a_label
         self.release_left_right()
         print('go left_')
         pd.keyDown('a')
-        time.sleep(0.3)
+        a_label.configure(bg='#FF0')
+        time.sleep(0.2)
         pd.keyUp('a')
+        a_label.configure(bg='#FFF')
+        time.sleep(0.2)
 
     def r(self):
+        global d_label
         if not self.d_key:
             self.release_left_right()
             self.d_key = True
             print('go right')
             pd.keyDown('d')
+            d_label.configure(bg='#FF0')
 
     def r_(self):
+        global d_label
         self.release_left_right()
         print('go right_')
         pd.keyDown('d')
-        time.sleep(0.3)
+        d_label.configure(bg='#FF0')
+        time.sleep(0.2)
         pd.keyUp('d')
+        d_label.configure(bg='#FFF')
+        time.sleep(0.2)
 
     def up(self):
+        global w_label
         if not self.w_key:
             # self.release_up()
             self.w_key = True
             print('go up')
             pd.keyDown('w')
+            w_label.configure(bg='#FF0')
 
     def release_up(self):
+        global w_label
         if self.w_key:
             self.w_key = False
             pd.keyUp('w')
+            w_label.configure(bg='#FFF')
 
     def release_left_right(self):
+        global a_label, d_label
         if self.a_key:
             self.a_key = False
             pd.keyUp('a')
+            a_label.configure(bg='#FFF')
         if self.d_key:
             self.d_key = False
             pd.keyUp('d')
+            d_label.configure(bg='#FFF')
 
     def release_all(self):
+        global w_label, a_label, d_label
         if self.w_key:
             self.w_key = False
             pd.keyUp('w')
+            w_label.configure(bg='#FFF')
         if self.a_key:
             self.a_key = False
             pd.keyUp('a')
+            a_label.configure(bg='#FFF')
         if self.s_key:
             self.s_key = False
             pd.keyUp('s')
         if self.d_key:
             self.d_key = False
             pd.keyUp('d')
+            d_label.configure(bg='#FFF')
 
 ky = my_keyboard()
 
@@ -175,21 +197,21 @@ def keyboard_ctrl():
 
             if human_x >= target_x:         # target在人物左邊
                 if target_x2 <= human_x1:   # 可往左邊走
-                    if (human_x1 - target_x2) > 25:
+                    if (human_x1 - target_x2) > 35:
                         ky.l()
-                    elif (human_x1 - target_x2) > 5:
+                    elif (human_x1 - target_x2) > 10:
                         ky.l_()
                 else:                       # 重疊了
-                    if (target_x2 - human_x1) > 15:
+                    if (target_x2 - human_x1) > 20:
                         ky.r_()
             else:                           # target在人物右邊
                 if human_x2 <= target_x1:   # 可往右邊走
-                    if (human_x2 - target_x1) > 25:
+                    if (target_x1 - human_x2) > 35:
                         ky.r()
-                    elif (human_x2 - target_x1) > 5:
+                    elif (target_x1 - human_x2) > 10:
                         ky.r_()
                 else:                       # 重疊了
-                    if (target_x1 - human_x2) > 15:
+                    if (human_x2 - target_x1) > 20:
                         ky.l_()
 
 def run_model():
@@ -361,13 +383,13 @@ def run_model():
 def speed_low():
     global detect_time, speed_lab
     detect_time += 20
-    speed_lab.configure(text='inference speed :' + str(detect_time))
+    speed_lab.configure(text='infer speed : ' + str(detect_time))
 
 def speed_fast():
     global detect_time, speed_lab
-    if detect_time >= 22:
+    if detect_time >= 42:
         detect_time -= 20
-    speed_lab.configure(text='inference speed :' + str(detect_time))
+    speed_lab.configure(text='infer speed : ' + str(detect_time))
 
 def on_closing():
     global end_game
@@ -384,24 +406,11 @@ def update_clock():
     if start_flag:
         delta = int(time.time() - start_time)
         current_time = str(timedelta(seconds=delta))
-        my_time.config(text=current_time)
+        my_time.config(text='已耗時: '+current_time)
     else:
-        my_time.config(text='0:00:00')
+        my_time.config(text='已耗時: 0:00:00')
 
     app.after(1000, update_clock) 
-
-# class Task(Thread):
-#     def __init__(self, cmd):
-#         Thread.__init__(self)
-#         self.cmd = cmd
-
-#     def run(self):
-#         global cv_enable
-#         if cv_enable:
-#             cv_enable = False
-#             destroyAllWindows()
-#         else:
-#             cv_enable = True
 
 
 class task:
@@ -431,16 +440,18 @@ class task:
             
     
     def img_on_off(self):
-        global cv_enable
+        global cv_enable, img_on_off_label
         print(cv_enable)
         if cv_enable:
             cv_enable = False
+            img_on_off_label.configure(text='顯示畫面 : OFF')
         else:
             cv_enable = True
+            img_on_off_label.configure(text='顯示畫面 : ON')
         self.lock = False
 
     def start_game(self):
-        global start_flag, start_time, gta_, left, top, w, h
+        global start_flag, start_time, gta_, left, top, w, h, labelHeight
         if not start_flag:
             gta_ = gw.getWindowsWithTitle('FiveM')[0]
 
@@ -453,16 +464,18 @@ class task:
             gta_.activate()
             time.sleep(0.5)
             start_flag = True
+            labelHeight.configure(text='狀態 : 採礦中')
             start_time = time.time()
             update_clock()
         self.lock = False
 
     def stop_game(self):
-        global start_flag
+        global start_flag, labelHeight
         if start_flag:
             start_flag = False
             time.sleep(0.5)
             ky.release_all()
+            labelHeight.configure(text='狀態 : 停止')
         self.lock = False
 
 
@@ -494,7 +507,8 @@ def eee():
             continue
 
         pd.press('e')
-        time.sleep(0.25)
+        time.sleep(0.15)
+
 ########################### main loop ###########################
 
 t = Thread(target = run_model)
@@ -507,11 +521,20 @@ app = tk.Tk()
 app.title('MY_GTA')
 app.geometry('750x650+5+5')
 
-my_time = tk.Label(app, text = '0:00:00')
+my_time = tk.Label(app, text = '已耗時 : 0:00:00', width=15, height=2)
 my_time.place(x=10, y=10)
 
-labelHeight = tk.Label(app, text = "Test")
+w_label = tk.Label(app, text = 'W', width=5, height=2, bg='#FFF')
+w_label.place(x=210, y=10)
+
+labelHeight = tk.Label(app, text = '狀態 : 停止', width=15, height=2)
 labelHeight.place(x=10, y=60)
+
+a_label = tk.Label(app, text = 'A', width=5, height=2, bg='#FFF')
+a_label.place(x=160, y=60)
+
+d_label = tk.Label(app, text = 'D', width=5, height=2, bg='#FFF')
+d_label.place(x=260, y=60)
 
 start_button = tk.Button(app, text = 'Start', width=15, height=2, command=lambda: thread_func('start_game'))
 start_button.place(x=10, y=110)
@@ -522,19 +545,24 @@ start_button.place(x=10, y=110)
 speed_slow_btn = tk.Button(app, text = 'slow', width=15, height=2, command=speed_low)
 speed_slow_btn.place(x=10, y=160)
 
-speed_lab = tk.Label(app, text = 'infer speed :' + str(detect_time))
+speed_lab = tk.Label(app, text = 'infer speed : ' + str(detect_time))
 speed_lab.place(x=160, y=170)
 
 speed_fast_btn = tk.Button(app, text = 'fast', width=15, height=2, command=speed_fast)
 speed_fast_btn.place(x=310, y=160)
+
+img_on_off_btn = tk.Button(app, text = 'ON/OFF', width=15, height=2, command=lambda: thread_func('img_on_off'))
+img_on_off_btn.place(x=10, y=210)
+
+img_on_off_label = tk.Label(app, text = '顯示畫面 : ON', width=15, height=2)
+img_on_off_label.place(x=160, y=220)
 
 new_img = img_PIL.resize((640, 360))
 tmp = ImageTk.PhotoImage(new_img)
 imgshow = tk.Label(app, image=tmp)
 imgshow.place(x=10, y=260)
 
-img_on_off_btn = tk.Button(app, text = 'ON/OFF', width=15, height=2, command=lambda: thread_func('img_on_off'))
-img_on_off_btn.place(x=10, y=210)
+
 
 app.protocol("WM_DELETE_WINDOW", Thread(target=on_closing).start)
 
