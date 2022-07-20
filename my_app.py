@@ -4,12 +4,15 @@ import tkinter as tk
 from threading import Thread
 from cv2 import VideoCapture, rectangle, putText, FONT_HERSHEY_SIMPLEX, cvtColor, COLOR_RGB2BGR, COLOR_BGR2RGB, TrackerCSRT_create, resize, INTER_AREA
 from PIL import ImageTk, Image
+from psutil import cpu_percent
 import pydirectinput as pd
 from pyautogui import screenshot, moveRel
 import pygetwindow as gw
 import numpy as np
 from datetime import timedelta
 from math import sqrt
+import random
+import uuid
 
 
 from torch import hub
@@ -25,8 +28,13 @@ model.amp = False  # Automatic Mixed Precision (AMP) inference
 
 tracker = TrackerCSRT_create()
 
+pd.FAILSAFE = False
+
+macaddr = uuid.UUID(int = uuid.getnode()).hex[-12:]
+print(macaddr)
+
 detect_time = 82
-start_time = 0   # for GUI timer
+start_time = 0.0   # for GUI timer
 start_flag = False
 end_game = False
 cv_enable = True
@@ -34,20 +42,24 @@ e_trigger = False
 
 
 print(gw.getAllTitles())
-# ttt = gw.getWindowsWithTitle('Visual')[0]
-# while(True):
-#     time.sleep(1)
-#     print(ttt.isActive)
-#     break
 
-gta_ = gw.getWindowsWithTitle('FiveM')[0]
+# try:
+#     ttt = gw.getWindowsWithTitle('dddd')[0]
+# except:
+#     print('please open FiveM first')
+#     exit()
+# gta_ = gw.getWindowsWithTitle('FiveM')[0]
 
+gta_ = ''
+gta_handle_pass = False
 offset = 10
-left = gta_.left + offset
-top = gta_.top + offset+20
+left = offset
+top = offset+20
 w = 1280
 h = 720
 print(left, top, w, h)
+img_PIL = screenshot(region=(left, top, w, h))
+tk_img = ''
 
 human_x1 = 563
 human_x2 = 617
@@ -58,9 +70,6 @@ target_x1 = 0
 target_x2 = 0
 target_y1 = 0
 target_y2 = 0
-
-img_PIL = screenshot(region=(left, top, w, h))
-tk_img = ''
 
 
 # sight_move_range = 300
@@ -168,22 +177,25 @@ class my_keyboard:
 ky = my_keyboard()
 
 def keyboard_ctrl():
-    global target_x1, target_x2, target_y1, target_y2, e_trigger
     while(True):
         if end_game:
             print('ready to end game keyboard')
             break
         
         if not start_flag:
-            time.sleep(0.5)
+            time.sleep(0.1)
             continue
 
-        wait_time = int(detect_time/2)
-        time.sleep(wait_time/1000.0)
+        # wait_time = int(detect_time/2)
+        # time.sleep(wait_time/1000.0)
+        time.sleep(0.04)
 
         # if e_trigger:                               # 偵測到採集時
         #     ky.press_e()
         #     time.sleep(0.5)
+
+        
+
         if target_x1 == -1 and target_y1 == -1 and target_x2 == -1 and target_y2 == -1:   # 沒偵測到任何東西
             # sight_l()
             ky.l()
@@ -191,9 +203,9 @@ def keyboard_ctrl():
         else:
             ky.up()
             human_x = (human_x1 + human_x2)/2
-            human_y = (human_y1 + human_y2)/2
+            # human_y = (human_y1 + human_y2)/2
             target_x = (target_x1 + target_x2)/2
-            target_y = (target_y1 + target_y2)/2
+            # target_y = (target_y1 + target_y2)/2
 
             if human_x >= target_x:         # target在人物左邊
                 if target_x2 <= human_x1:   # 可往左邊走
@@ -229,8 +241,8 @@ def run_model():
             break
         
         if not start_flag:
-            print('wait start')
-            time.sleep(0.5)
+            # print('wait start')
+            time.sleep(0.1)
             continue
 
         start = time.time()
@@ -245,7 +257,7 @@ def run_model():
         
         rectangle(frame, (human_x1, human_y1), (human_x2, human_y2), (0, 255, 0), 2, 1)
 
-        if cou%6 == 0:
+        if cou%5 == 0:
             results = model(img_PIL, size=640)  # includes NMS
             bboxs = results.pandas().xyxy[0]
 
@@ -401,8 +413,6 @@ def on_closing():
     
 
 def update_clock():
-    global start_time, start_flag
-
     if start_flag:
         delta = int(time.time() - start_time)
         current_time = str(timedelta(seconds=delta))
@@ -421,7 +431,7 @@ class task:
         if self.lock == True:
             print('some thread running...')
             while(self.lock):
-                time.sleep(0.2)
+                time.sleep(0.01)
             print('OK!')
 
         if self.lock == False:
@@ -441,7 +451,7 @@ class task:
     
     def img_on_off(self):
         global cv_enable, img_on_off_label
-        print(cv_enable)
+        # print(cv_enable)
         if cv_enable:
             cv_enable = False
             img_on_off_label.configure(text='顯示畫面 : OFF')
@@ -451,29 +461,37 @@ class task:
         self.lock = False
 
     def start_game(self):
-        global start_flag, start_time, gta_, left, top, w, h, labelHeight
+        global start_flag, start_time, gta_, left, top, w, h, labelHeight, gta_handle_pass
+        
         if not start_flag:
-            gta_ = gw.getWindowsWithTitle('FiveM')[0]
+            gta_handle_pass = False
+            try:
+                gta_ = gw.getWindowsWithTitle('FiveM')[0]
+                gta_handle_pass = True
+            except:
+                labelHeight.configure(text='錯誤!! 請先開啟 FiveM')
+                gta_handle_pass = False
 
-            left = gta_.left + offset
-            top = gta_.top + offset+20
-            w = 1280
-            h = 720
-            print(left, top, w, h)
+            if gta_handle_pass:
+                left = gta_.left + offset
+                top = gta_.top + offset+20
+                w = 1280
+                h = 720
+                print(left, top, w, h)
 
-            gta_.activate()
-            time.sleep(0.5)
-            start_flag = True
-            labelHeight.configure(text='狀態 : 採礦中')
-            start_time = time.time()
-            update_clock()
+                gta_.activate()
+                time.sleep(0.3)
+                start_flag = True
+                labelHeight.configure(text='狀態 : 採礦中')
+                start_time = time.time()
+                update_clock()
         self.lock = False
 
     def stop_game(self):
         global start_flag, labelHeight
         if start_flag:
             start_flag = False
-            time.sleep(0.5)
+            time.sleep(0.2)
             ky.release_all()
             labelHeight.configure(text='狀態 : 停止')
         self.lock = False
@@ -486,28 +504,73 @@ def thread_func(my_str):
 
 
 def detect_focus():
-    time.sleep(2)
     while(True):
-        time.sleep(0.5)
         if end_game:
-            print('ready to end game')
+            print('ready to end game detect_focus')
             break
+        if not start_flag:
+            time.sleep(0.1)
+            continue
         
-        if gta_.isActive == False and start_flag:
-            op.newThread('stop_game')
+        time.sleep(0.1)
+        if gta_handle_pass:
+            if gta_.isActive == False:
+                op.newThread('stop_game')
 
 def eee():
     while(True):
         if end_game:
-            print('ready to end game eee')
             break
-        
         if not start_flag:
-            time.sleep(0.5)
+            time.sleep(0.1)
             continue
 
         pd.press('e')
         time.sleep(0.15)
+
+def press_space():
+    while(True):
+        if end_game:
+            break
+        if not start_flag:
+            time.sleep(0.1)
+            continue
+
+        time.sleep(0.4)
+        delta = int(time.time() - start_time)
+        if delta % 10 == 0 and target_x1 != -1:
+            pd.press('space')
+
+def cpu_detect():
+    global cpu_usage, cpu_label, detect_time
+    cpu_usage = cpu_percent(interval=1)
+    alert_cou = 0
+    while(True):
+        if end_game:
+            break
+        if not start_flag:
+            time.sleep(0.1)
+            continue
+        if cpu_usage > 75:
+            cpu_label.configure(text='CPU使用率 : ' + str(cpu_usage), bg='#F00')
+            if cpu_usage > 85:
+                alert_cou += 2
+            else:
+                alert_cou += 1
+        else:
+            cpu_label.configure(text='CPU使用率 : ' + str(cpu_usage), bg='#FFF')
+            alert_cou -= 2
+
+        if alert_cou < 0:
+            alert_cou = 0
+        elif alert_cou > 8:
+            alert_cou = 8
+        
+        if alert_cou == 8:
+            detect_time += 20
+            alert_cou = 0
+
+        cpu_usage = cpu_percent(interval=1)
 
 ########################### main loop ###########################
 
@@ -515,26 +578,31 @@ t = Thread(target = run_model)
 t2 = Thread(target=keyboard_ctrl)
 t3 = Thread(target=detect_focus)
 t4 = Thread(target=eee)
+t5 = Thread(target=press_space)
+t6 = Thread(target=cpu_detect)
 
 
 app = tk.Tk()
-app.title('MY_GTA')
-app.geometry('750x650+5+5')
+app.title('my_app')
+app.geometry('670x630+5+5')
 
-my_time = tk.Label(app, text = '已耗時 : 0:00:00', width=15, height=2)
+my_time = tk.Label(app, text = '已耗時 : 0:00:00', width=20, height=2, bg='#FFF', anchor='w')
 my_time.place(x=10, y=10)
 
 w_label = tk.Label(app, text = 'W', width=5, height=2, bg='#FFF')
-w_label.place(x=210, y=10)
+w_label.place(x=500, y=10)
 
-labelHeight = tk.Label(app, text = '狀態 : 停止', width=15, height=2)
+labelHeight = tk.Label(app, text = '狀態 : 停止', width=20, height=2, bg='#FFF', anchor='w')
 labelHeight.place(x=10, y=60)
 
+cpu_label = tk.Label(app, text = 'CPU使用率 : ', width=20, height=2, bg='#FFF', anchor='w')
+cpu_label.place(x=170, y=60)
+
 a_label = tk.Label(app, text = 'A', width=5, height=2, bg='#FFF')
-a_label.place(x=160, y=60)
+a_label.place(x=450, y=60)
 
 d_label = tk.Label(app, text = 'D', width=5, height=2, bg='#FFF')
-d_label.place(x=260, y=60)
+d_label.place(x=550, y=60)
 
 start_button = tk.Button(app, text = 'Start', width=15, height=2, command=lambda: thread_func('start_game'))
 start_button.place(x=10, y=110)
@@ -545,17 +613,17 @@ start_button.place(x=10, y=110)
 speed_slow_btn = tk.Button(app, text = 'slow', width=15, height=2, command=speed_low)
 speed_slow_btn.place(x=10, y=160)
 
-speed_lab = tk.Label(app, text = 'infer speed : ' + str(detect_time))
-speed_lab.place(x=160, y=170)
+speed_lab = tk.Label(app, text = 'infer speed : ' + str(detect_time), width=20, height=2, bg='#FFF', anchor='w')
+speed_lab.place(x=170, y=160)
 
 speed_fast_btn = tk.Button(app, text = 'fast', width=15, height=2, command=speed_fast)
-speed_fast_btn.place(x=310, y=160)
+speed_fast_btn.place(x=350, y=160)
 
 img_on_off_btn = tk.Button(app, text = 'ON/OFF', width=15, height=2, command=lambda: thread_func('img_on_off'))
 img_on_off_btn.place(x=10, y=210)
 
-img_on_off_label = tk.Label(app, text = '顯示畫面 : ON', width=15, height=2)
-img_on_off_label.place(x=160, y=220)
+img_on_off_label = tk.Label(app, text = '顯示畫面 : ON', width=20, height=2, bg='#FFF', anchor='w')
+img_on_off_label.place(x=170, y=220)
 
 new_img = img_PIL.resize((640, 360))
 tmp = ImageTk.PhotoImage(new_img)
@@ -572,14 +640,17 @@ t.start()
 t2.start()
 t3.start()
 t4.start()
+t5.start()
+t6.start()
 app.mainloop()
+
 print('app end')
 
 t.join()
 print('while end')
 t2.join()
 print('keyboard end')
-t3.join()
+# t3.join()
 
 # sys.exit()
 
