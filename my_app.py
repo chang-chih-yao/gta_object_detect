@@ -13,42 +13,43 @@ from datetime import timedelta
 from math import sqrt
 import random
 import uuid
+import requests
+import ctypes
+
+macaddr = uuid.UUID(int = uuid.getnode()).hex[-12:]
+# print(macaddr)
+my_data = {'user': macaddr}
+r = requests.post('https://m900054.pythonanywhere.com/submit', data = my_data)
+# print(r.text)
+if r.text == 'True':
+    # MessageBox = ctypes.windll.user32.MessageBoxW
+    # MessageBox(None, 'PASS', '金鑰檢查', 0)
+    pass
+else:
+    MessageBox = ctypes.windll.user32.MessageBoxW
+    MessageBox(None, 'FAIL! 請通知開發人員協助開通金鑰', '金鑰檢查', 0)
+    exit()
 
 
-from torch import hub
-# model = hub.load('ultralytics/yolov5', 'yolov5s', device='cpu')
-model = hub.load('chang-chih-yao/yolov5', 'custom', 'best.onnx', device='cpu')
-model.conf = 0.3  # NMS confidence threshold
-model.iou = 0.4  # NMS IoU threshold
-model.agnostic = False  # NMS class-agnostic
-model.multi_label = False  # NMS multiple labels per box
-model.classes = None  # (optional list) filter by class, i.e. = [0, 15, 16] for COCO persons, cats and dogs
-model.max_det = 100  # maximum number of detections per image
-model.amp = False  # Automatic Mixed Precision (AMP) inference
 
 tracker = TrackerCSRT_create()
 
 pd.FAILSAFE = False
+pd.PAUSE = 0.001
 
-macaddr = uuid.UUID(int = uuid.getnode()).hex[-12:]
-print(macaddr)
-
-detect_time = 82
+detect_time = 82   # ms
+space_time = 10    # s
 start_time = 0.0   # for GUI timer
 start_flag = False
 end_game = False
 cv_enable = True
+shift_enable = False
 e_trigger = False
+
+now_target_object = 'rock_1'    # defualt target 鈦礦
 
 
 print(gw.getAllTitles())
-
-# try:
-#     ttt = gw.getWindowsWithTitle('dddd')[0]
-# except:
-#     print('please open FiveM first')
-#     exit()
-# gta_ = gw.getWindowsWithTitle('FiveM')[0]
 
 gta_ = ''
 gta_handle_pass = False
@@ -77,17 +78,36 @@ target_y2 = 0
 # def sight_l():
 #     moveRel(-sight_move_range, 0, duration = sight_move_speed)
 
+
+
+
+
+
+
+
+
+
+
+from torch import hub
+# model = hub.load('ultralytics/yolov5', 'yolov5s', device='cpu')
+model = hub.load('chang-chih-yao/yolov5', 'custom', 'best.onnx', device='cpu')
+model.conf = 0.3  # NMS confidence threshold
+model.iou = 0.4  # NMS IoU threshold
+model.agnostic = False  # NMS class-agnostic
+model.multi_label = False  # NMS multiple labels per box
+model.classes = None  # (optional list) filter by class, i.e. = [0, 15, 16] for COCO persons, cats and dogs
+model.max_det = 100  # maximum number of detections per image
+model.amp = False  # Automatic Mixed Precision (AMP) inference
+
+
+
 class my_keyboard:
     def __init__(self):
         self.w_key = False
         self.a_key = False
         self.s_key = False
         self.d_key = False
-
-    # def press_e(self):
-    #     self.release_all()
-    #     print('press e')
-    #     pd.press('e')
+        self.shift_key = False
 
     def l(self):
         global a_label
@@ -104,10 +124,10 @@ class my_keyboard:
         print('go left_')
         pd.keyDown('a')
         a_label.configure(bg='#FF0')
-        time.sleep(0.2)
+        time.sleep(0.3)
         pd.keyUp('a')
         a_label.configure(bg='#FFF')
-        time.sleep(0.2)
+        time.sleep(0.3)
 
     def r(self):
         global d_label
@@ -124,10 +144,10 @@ class my_keyboard:
         print('go right_')
         pd.keyDown('d')
         d_label.configure(bg='#FF0')
-        time.sleep(0.2)
+        time.sleep(0.3)
         pd.keyUp('d')
         d_label.configure(bg='#FFF')
-        time.sleep(0.2)
+        time.sleep(0.3)
 
     def up(self):
         global w_label
@@ -144,6 +164,16 @@ class my_keyboard:
             self.w_key = False
             pd.keyUp('w')
             w_label.configure(bg='#FFF')
+
+    def press_shift(self):
+        if not self.shift_key:
+            self.shift_key = True
+            pd.keyDown('shift')
+
+    def release_shift(self):
+        if self.shift_key:
+            self.shift_key = False
+            pd.keyUp('shift')
 
     def release_left_right(self):
         global a_label, d_label
@@ -173,6 +203,9 @@ class my_keyboard:
             self.d_key = False
             pd.keyUp('d')
             d_label.configure(bg='#FFF')
+        if self.shift_key:
+            self.shift_key = False
+            pd.keyUp('shift')
 
 ky = my_keyboard()
 
@@ -194,13 +227,18 @@ def keyboard_ctrl():
         #     ky.press_e()
         #     time.sleep(0.5)
 
-        
 
         if target_x1 == -1 and target_y1 == -1 and target_x2 == -1 and target_y2 == -1:   # 沒偵測到任何東西
             # sight_l()
             ky.l()
             ky.release_up()
+            ky.release_shift()
         else:
+            if shift_enable:
+                ky.press_shift()
+            else:
+                ky.release_shift()
+
             ky.up()
             human_x = (human_x1 + human_x2)/2
             # human_y = (human_y1 + human_y2)/2
@@ -214,7 +252,7 @@ def keyboard_ctrl():
                     elif (human_x1 - target_x2) > 10:
                         ky.l_()
                 else:                       # 重疊了
-                    if (target_x2 - human_x1) > 20:
+                    if (target_x2 - human_x1) > 30:
                         ky.r_()
             else:                           # target在人物右邊
                 if human_x2 <= target_x1:   # 可往右邊走
@@ -223,7 +261,7 @@ def keyboard_ctrl():
                     elif (target_x1 - human_x2) > 10:
                         ky.r_()
                 else:                       # 重疊了
-                    if (human_x2 - target_x1) > 20:
+                    if (human_x2 - target_x1) > 30:
                         ky.l_()
 
 def run_model():
@@ -270,6 +308,7 @@ def run_model():
             
             min_dist = 9999999
             min_dist_tracking = 9999999
+            max_bbox_area = -1
             target_x1_tmp = 0
             target_x2_tmp = 0
             target_y1_tmp = 0
@@ -299,20 +338,28 @@ def run_model():
                         if area < bbox_E_area:
                             bbox_E_area = area
                             bbox_E = [x1, y1, x2, y2]
-                    elif area > 1000:
+                    elif area > 1000 and obj_name == now_target_object:
                         rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2, 1)
-                        distence = sqrt((yolo_bbox_center_x - human_x)**2 + (yolo_bbox_center_y - human_y)**2)
-                        if distence < min_dist:   # 選出距離 human 最近的 yolo bbox
-                            min_dist = distence
-                            target_x1_tmp = x1
-                            target_x2_tmp = x2
-                            target_y1_tmp = y1
-                            target_y2_tmp = y2
 
-                        distence_tracking = sqrt((yolo_bbox_center_x - tracking_bbox_center_x)**2 + (yolo_bbox_center_y - tracking_bbox_center_y)**2)
-                        if distence_tracking < min_dist_tracking:   # 選出距離 tracking bbox 最近的 yolo bbox
-                            min_dist_tracking = distence_tracking
-                            tracking_bbox = (x1, y1, x2-x1, y2-y1)
+                        # distence = sqrt((yolo_bbox_center_x - human_x)**2 + (yolo_bbox_center_y - human_y)**2)
+                        # if distence < min_dist:   # 選出距離 human 最近的 yolo bbox
+                        #     min_dist = distence
+                        #     target_x1_tmp = x1
+                        #     target_x2_tmp = x2
+                        #     target_y1_tmp = y1
+                        #     target_y2_tmp = y2
+                        if y2 < human_y2:
+                            if max_bbox_area < area:
+                                max_bbox_area = area
+                                target_x1_tmp = x1
+                                target_x2_tmp = x2
+                                target_y1_tmp = y1
+                                target_y2_tmp = y2
+
+                            distence_tracking = sqrt((yolo_bbox_center_x - tracking_bbox_center_x)**2 + (yolo_bbox_center_y - tracking_bbox_center_y)**2)
+                            if distence_tracking < min_dist_tracking:   # 選出距離 tracking bbox 最近的 yolo bbox
+                                min_dist_tracking = distence_tracking
+                                tracking_bbox = (x1, y1, x2-x1, y2-y1)
                 
                 if bbox_E_area != 999999:
                     # e_trigger = True
@@ -324,7 +371,19 @@ def run_model():
                     target_y1 = -1
                     target_y2 = -1
                 else:
-                    if min_dist_tracking < tracking_bbox_size:     # 若 tracking bbox 跟最近的 yolo bbox 的距離小於 tracking bbox 的大小，就可以用 yolo bbox 更新 tracking bbox 的位置
+                    # print(max_bbox_area, tracking_bbox[2]*tracking_bbox[3])
+                    if min_dist_tracking > tracking_bbox_size or max_bbox_area/2 > tracking_bbox[2]*tracking_bbox[3]:
+                        # 可能因為該物體已經被採集完畢，消失了，tracking 更新到全新的位置
+                        # 或是 視野中的最大物體/2 比目前追蹤的物體還大，也會讓tracking更新到新的位置
+                        tracker = TrackerCSRT_create()
+                        tracker.init(track_img, (target_x1_tmp, target_y1_tmp, target_x2_tmp-target_x1_tmp, target_y2_tmp-target_y1_tmp))
+                        # print(track_img.size, target_x1_tmp, target_y1_tmp, target_x2_tmp, target_y2_tmp)
+                        target_x1 = target_x1_tmp
+                        target_x2 = target_x2_tmp
+                        target_y1 = target_y1_tmp
+                        target_y2 = target_y2_tmp
+                        rectangle(frame, (target_x1, target_y1), (target_x2, target_y2), (255, 255, 0), 2, 1)
+                    else:                                          # 若 tracking bbox 跟最近的 yolo bbox 的距離小於 tracking bbox 的大小，就可以用 yolo bbox 更新 tracking bbox 的位置
                         tracker = TrackerCSRT_create()
                         tracker.init(track_img, tracking_bbox)
                         # print('tracking box update by yolo')
@@ -334,19 +393,7 @@ def run_model():
                         target_y1 = tracking_bbox[1]
                         target_y2 = tracking_bbox[1] + tracking_bbox[3]
                         rectangle(frame, (target_x1, target_y1), (target_x2, target_y2), (255, 255, 0), 2, 1)
-                    else:                                          # tracking 更新到全新的位置
-                        tracker = TrackerCSRT_create()
-                        tracker.init(track_img, (target_x1_tmp, target_y1_tmp, target_x2_tmp-target_x1_tmp, target_y2_tmp-target_y1_tmp))
-                        # print(track_img.size, target_x1_tmp, target_y1_tmp, target_x2_tmp, target_y2_tmp)
-                        target_x1 = target_x1_tmp
-                        target_x2 = target_x2_tmp
-                        target_y1 = target_y1_tmp
-                        target_y2 = target_y2_tmp
-                        rectangle(frame, (target_x1, target_y1), (target_x2, target_y2), (255, 255, 0), 2, 1)
 
-                    # if cou == 0:    # begining
-                    #     tracking_bbox = (target_x1, target_y1, target_x2-target_x1, target_y2-target_y1)
-                    #     tracker.init(track_img, tracking_bbox)
             else:
                 target_x1 = -1
                 target_x2 = -1
@@ -403,6 +450,17 @@ def speed_fast():
         detect_time -= 20
     speed_lab.configure(text='infer speed : ' + str(detect_time))
 
+def space_speed_down():
+    global space_time, shift_speed_label
+    if space_time >= 1:
+        space_time -= 1
+    shift_speed_label.configure(text='space每 ' + str(space_time) + ' 秒按一次')
+
+def space_speed_up():
+    global space_time, shift_speed_label
+    space_time += 1
+    shift_speed_label.configure(text='space每 ' + str(space_time) + ' 秒按一次')
+
 def on_closing():
     global end_game
     end_game = True
@@ -423,6 +481,14 @@ def update_clock():
     app.after(1000, update_clock) 
 
 
+def combobox_selected(event):
+    global now_target_object
+    print(mycombobox.current(), comboboxText.get())
+    if mycombobox.current() == 0:      # 鈦
+        now_target_object = 'rock_1'
+    elif mycombobox.current() == 1:    # 鐵
+        now_target_object = 'rock_2'
+
 class task:
     def __init__(self):
         self.lock = False
@@ -438,6 +504,9 @@ class task:
             if my_str == 'img_on_off':
                 self.lock = True
                 Thread(target=self.img_on_off).start()
+            elif my_str == 'shift_on_off':
+                self.lock = True
+                Thread(target=self.shift_on_off).start()
             elif my_str == 'start_game':
                 self.lock = True
                 Thread(target=self.start_game).start()
@@ -458,6 +527,16 @@ class task:
         else:
             cv_enable = True
             img_on_off_label.configure(text='顯示畫面 : ON')
+        self.lock = False
+
+    def shift_on_off(self):
+        global shift_enable, shift_on_off_label
+        if shift_enable:
+            shift_enable = False
+            shift_on_off_label.configure(text='shift : OFF')
+        else:
+            shift_enable = True
+            shift_on_off_label.configure(text='shift : ON')
         self.lock = False
 
     def start_game(self):
@@ -488,7 +567,7 @@ class task:
         self.lock = False
 
     def stop_game(self):
-        global start_flag, labelHeight
+        global start_flag, labelHeight, shift_enable
         if start_flag:
             start_flag = False
             time.sleep(0.2)
@@ -526,9 +605,10 @@ def eee():
             continue
 
         pd.press('e')
-        time.sleep(0.15)
+        time.sleep(0.1)
 
 def press_space():
+    global space_time
     while(True):
         if end_game:
             break
@@ -538,8 +618,9 @@ def press_space():
 
         time.sleep(0.4)
         delta = int(time.time() - start_time)
-        if delta % 10 == 0 and target_x1 != -1:
-            pd.press('space')
+        if space_time != 0:
+            if delta % space_time == 0 and target_x1 != -1:   # 間隔 space_time, 沒偵測到物體時不要按space
+                pd.press('space')
 
 def cpu_detect():
     global cpu_usage, cpu_label, detect_time
@@ -584,7 +665,7 @@ t6 = Thread(target=cpu_detect)
 
 app = tk.Tk()
 app.title('my_app')
-app.geometry('670x630+5+5')
+app.geometry('670x730+5+5')
 
 my_time = tk.Label(app, text = '已耗時 : 0:00:00', width=20, height=2, bg='#FFF', anchor='w')
 my_time.place(x=10, y=10)
@@ -623,12 +704,44 @@ img_on_off_btn = tk.Button(app, text = 'ON/OFF', width=15, height=2, command=lam
 img_on_off_btn.place(x=10, y=210)
 
 img_on_off_label = tk.Label(app, text = '顯示畫面 : ON', width=20, height=2, bg='#FFF', anchor='w')
-img_on_off_label.place(x=170, y=220)
+img_on_off_label.place(x=170, y=210)
+     
+
+comboboxText = tk.StringVar()
+mycombobox = tk.ttk.Combobox(app, textvariable=comboboxText, state='readonly')
+mycombobox['values'] = ['鈦', '鐵']
+mycombobox.place(x=170, y=120)
+mycombobox.current(0)
+mycombobox.bind('<<ComboboxSelected>>', combobox_selected)
+
+# shift_speed_down_btn = tk.Button(app, text = '-', width=15, height=2, command=speed_low)
+# shift_speed_down_btn.place(x=10, y=260)
+
+# shift_speed_label = tk.Label(app, text = 'shift每 5 秒按一次', width=20, height=2, bg='#FFF', anchor='w')
+# shift_speed_label.place(x=170, y=260)
+
+# shift_speed_up_btn = tk.Button(app, text = '+', width=15, height=2, command=speed_low)
+# shift_speed_up_btn.place(x=350, y=260)
+
+shift_speed_down_btn = tk.Button(app, text = '-', width=15, height=2, command=space_speed_down)
+shift_speed_down_btn.place(x=10, y=260)
+
+shift_speed_label = tk.Label(app, text = 'space每 10 秒按一次', width=20, height=2, bg='#FFF', anchor='w')
+shift_speed_label.place(x=170, y=260)
+
+shift_speed_up_btn = tk.Button(app, text = '+', width=15, height=2, command=space_speed_up)
+shift_speed_up_btn.place(x=350, y=260)
+
+shift_on_off_btn = tk.Button(app, text = 'shift ON/OFF', width=15, height=2, command=lambda: thread_func('shift_on_off'))
+shift_on_off_btn.place(x=10, y=310)
+
+shift_on_off_label = tk.Label(app, text = 'shift : OFF', width=20, height=2, bg='#FFF', anchor='w')
+shift_on_off_label.place(x=170, y=310)
 
 new_img = img_PIL.resize((640, 360))
 tmp = ImageTk.PhotoImage(new_img)
 imgshow = tk.Label(app, image=tmp)
-imgshow.place(x=10, y=260)
+imgshow.place(x=10, y=360)
 
 
 
@@ -648,7 +761,7 @@ print('app end')
 
 t.join()
 print('while end')
-t2.join()
+# t2.join()
 print('keyboard end')
 # t3.join()
 
