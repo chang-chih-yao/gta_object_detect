@@ -37,16 +37,31 @@ tracker = TrackerCSRT_create()
 pd.FAILSAFE = False
 pd.PAUSE = 0.001
 
-detect_time = 82   # ms
-space_time = 10    # s
+with open('cfg.txt', 'r') as cfg_file:
+    cfg_lines = cfg_file.readlines()
+
+detect_time = int(cfg_lines[0].split('\n')[0].split(' ')[-1])   # ms
+space_time  = int(cfg_lines[1].split('\n')[0].split(' ')[-1])   # s
+if cfg_lines[2].split('\n')[0].split(' ')[-1] == 'True':
+    cv_enable = True
+else:
+    cv_enable = False
+if cfg_lines[3].split('\n')[0].split(' ')[-1] == 'True':
+    shift_enable = True
+else:
+    shift_enable = False
+if cfg_lines[4].split('\n')[0].split(' ')[-1] == '0':
+    now_target_object = 'rock_1'    # defualt target 鈦礦
+elif cfg_lines[4].split('\n')[0].split(' ')[-1] == '1':
+    now_target_object = 'rock_2'    # 鐵礦
+
+
+
 start_time = 0.0   # for GUI timer
 start_flag = False
 end_game = False
-cv_enable = True
-shift_enable = False
 e_trigger = False
 
-now_target_object = 'rock_1'    # defualt target 鈦礦
 
 
 print(gw.getAllTitles())
@@ -462,8 +477,24 @@ def space_speed_up():
     shift_speed_label.configure(text='space每 ' + str(space_time) + ' 秒按一次')
 
 def on_closing():
-    global end_game
+    global end_game, detect_time, space_time, cv_enable, shift_enable, now_target_object
     end_game = True
+    with open('cfg.txt', 'w') as cfg_w:
+        cfg_w.write('detect_time ' + str(detect_time))
+        cfg_w.write('\n')
+        cfg_w.write('space_time ' + str(space_time))
+        cfg_w.write('\n')
+        cfg_w.write('cv_enable ' + str(cv_enable))
+        cfg_w.write('\n')
+        cfg_w.write('shift_enable ' + str(shift_enable))
+        cfg_w.write('\n')
+        if now_target_object == 'rock_1':
+            cfg_w.write('now_target_object 0')
+        elif now_target_object == 'rock_2':
+            cfg_w.write('now_target_object 1')
+        elif now_target_object == 'M':
+            cfg_w.write('now_target_object 2')
+        cfg_w.write('\n')
     time.sleep(0.5)
     # app.destroy()
     app.quit()
@@ -488,6 +519,8 @@ def combobox_selected(event):
         now_target_object = 'rock_1'
     elif mycombobox.current() == 1:    # 鐵
         now_target_object = 'rock_2'
+    elif mycombobox.current() == 2:    # 嗎啡
+        now_target_object = 'M'
 
 class task:
     def __init__(self):
@@ -540,7 +573,7 @@ class task:
         self.lock = False
 
     def start_game(self):
-        global start_flag, start_time, gta_, left, top, w, h, labelHeight, gta_handle_pass
+        global start_flag, start_time, gta_, left, top, w, h, labelHeight, gta_handle_pass, start_button
         
         if not start_flag:
             gta_handle_pass = False
@@ -559,6 +592,7 @@ class task:
                 print(left, top, w, h)
 
                 gta_.activate()
+                start_button['state'] = tk.DISABLED
                 time.sleep(0.3)
                 start_flag = True
                 labelHeight.configure(text='狀態 : 採礦中')
@@ -573,6 +607,7 @@ class task:
             time.sleep(0.2)
             ky.release_all()
             labelHeight.configure(text='狀態 : 停止')
+            start_button['state'] = tk.NORMAL
         self.lock = False
 
 
@@ -703,15 +738,22 @@ speed_fast_btn.place(x=350, y=160)
 img_on_off_btn = tk.Button(app, text = 'ON/OFF', width=15, height=2, command=lambda: thread_func('img_on_off'))
 img_on_off_btn.place(x=10, y=210)
 
-img_on_off_label = tk.Label(app, text = '顯示畫面 : ON', width=20, height=2, bg='#FFF', anchor='w')
+if cv_enable:
+    img_on_off_label = tk.Label(app, text = '顯示畫面 : ON', width=20, height=2, bg='#FFF', anchor='w')
+else:
+    img_on_off_label = tk.Label(app, text = '顯示畫面 : OFF', width=20, height=2, bg='#FFF', anchor='w')
 img_on_off_label.place(x=170, y=210)
-     
 
 comboboxText = tk.StringVar()
 mycombobox = tk.ttk.Combobox(app, textvariable=comboboxText, state='readonly')
-mycombobox['values'] = ['鈦', '鐵']
+mycombobox['values'] = ['鈦', '鐵', '嗎啡']
 mycombobox.place(x=170, y=120)
-mycombobox.current(0)
+if now_target_object == 'rock_1':
+    mycombobox.current(0)
+elif now_target_object == 'rock_2':
+    mycombobox.current(1)
+elif now_target_object == 'M':
+    mycombobox.current(2)
 mycombobox.bind('<<ComboboxSelected>>', combobox_selected)
 
 # shift_speed_down_btn = tk.Button(app, text = '-', width=15, height=2, command=speed_low)
@@ -726,7 +768,7 @@ mycombobox.bind('<<ComboboxSelected>>', combobox_selected)
 shift_speed_down_btn = tk.Button(app, text = '-', width=15, height=2, command=space_speed_down)
 shift_speed_down_btn.place(x=10, y=260)
 
-shift_speed_label = tk.Label(app, text = 'space每 10 秒按一次', width=20, height=2, bg='#FFF', anchor='w')
+shift_speed_label = tk.Label(app, text = 'space每 ' + str(space_time) + ' 秒按一次', width=20, height=2, bg='#FFF', anchor='w')
 shift_speed_label.place(x=170, y=260)
 
 shift_speed_up_btn = tk.Button(app, text = '+', width=15, height=2, command=space_speed_up)
@@ -735,7 +777,10 @@ shift_speed_up_btn.place(x=350, y=260)
 shift_on_off_btn = tk.Button(app, text = 'shift ON/OFF', width=15, height=2, command=lambda: thread_func('shift_on_off'))
 shift_on_off_btn.place(x=10, y=310)
 
-shift_on_off_label = tk.Label(app, text = 'shift : OFF', width=20, height=2, bg='#FFF', anchor='w')
+if shift_enable:
+    shift_on_off_label = tk.Label(app, text = 'shift : ON', width=20, height=2, bg='#FFF', anchor='w')
+else:
+    shift_on_off_label = tk.Label(app, text = 'shift : OFF', width=20, height=2, bg='#FFF', anchor='w')
 shift_on_off_label.place(x=170, y=310)
 
 new_img = img_PIL.resize((640, 360))
@@ -761,7 +806,7 @@ print('app end')
 
 t.join()
 print('while end')
-# t2.join()
+t2.join()
 print('keyboard end')
 # t3.join()
 
